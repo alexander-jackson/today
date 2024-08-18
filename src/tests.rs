@@ -1,10 +1,10 @@
 use axum::body::Body;
-use axum::http::header::CONTENT_TYPE;
-use axum::http::{Request, StatusCode};
+use axum::http::header::{CONTENT_TYPE, LOCATION};
+use axum::http::{Method, Request, StatusCode};
 use axum::response::Response;
 use axum::Router;
 use http_body_util::BodyExt;
-use tower_util::ServiceExt;
+use tower::Service;
 
 use crate::templates::TemplateEngine;
 
@@ -25,28 +25,36 @@ async fn read_full_body(response: Response) -> Result<String> {
 }
 
 #[tokio::test]
-async fn it_returns_a_static_response() -> Result<()> {
-    let router = build_router()?;
+async fn can_view_the_index_page() -> Result<()> {
+    let mut router = build_router()?;
     let request = Request::builder().uri("/").body(Body::empty())?;
 
-    let response = router.oneshot(request).await?;
+    let response = router.call(request).await?;
     let status = response.status();
-    let body = read_full_body(response).await?;
+
+    let content_type = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|h| h.to_str().ok());
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body, "Hello World!");
+    assert_eq!(content_type, Some("text/html"));
+
+    let body = read_full_body(response).await?;
+
+    assert!(body.contains("<h1>Today</h1>"));
 
     Ok(())
 }
 
 #[tokio::test]
 async fn invalid_requests_get_404s() -> Result<()> {
-    let router = build_router()?;
+    let mut router = build_router()?;
     let request = Request::builder()
         .uri("/unknown-path")
         .body(Body::empty())?;
 
-    let response = router.oneshot(request).await?;
+    let response = router.call(request).await?;
     let status = response.status();
 
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -55,11 +63,32 @@ async fn invalid_requests_get_404s() -> Result<()> {
 }
 
 #[tokio::test]
-async fn can_render_templates() -> Result<()> {
-    let router = build_router()?;
-    let request = Request::builder().uri("/index").body(Body::empty())?;
+async fn can_add_items() -> Result<()> {
+    let mut router = build_router()?;
+    let request = Request::builder()
+        .method(Method::POST)
+        .uri("/add")
+        .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .body(Body::from("item=Task"))?;
 
-    let response = router.oneshot(request).await?;
+    let response = router.call(request).await?;
+    let status = response.status();
+    let location = response
+        .headers()
+        .get(LOCATION)
+        .and_then(|h| h.to_str().ok());
+
+    // Get redirected to the index page
+    assert_eq!(status, StatusCode::FOUND);
+    assert_eq!(location, Some("/"));
+
+    let request = Request::builder()
+        .method(Method::GET)
+        .uri("/")
+        .body(Body::empty())?;
+
+    let response = router.call(request).await?;
+
     let status = response.status();
     let content_type = response
         .headers()
@@ -71,8 +100,7 @@ async fn can_render_templates() -> Result<()> {
 
     let body = read_full_body(response).await?;
 
-    assert!(body.contains("<h1>My First Heading</h1>"));
-    assert!(body.contains("<p>My first paragraph.</p>"));
+    assert!(body.contains("Task"));
 
     Ok(())
 }

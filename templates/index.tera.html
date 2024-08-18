@@ -9,18 +9,17 @@
     <h1>Today</h1>
 
     <ul>
+      {% for item in items %}
       <li>
         <input type="checkbox" />
-        Hoover my room
+        {{ item }}
       </li>
-      <li>
-        <input type="checkbox" />
-        Hoover the bathroom
-      </li>
-      <li>
-        <input type="checkbox" />
-        Mop the bathroom
-      </li>
+      {% endfor %}
     </ul>
+
+    <form action="/add" method="post">
+      <input type="text" id="add-item" name="item" />
+      <input type="submit" id="submit" />
+    </form>
   </body>
 </html>

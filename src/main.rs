@@ -1,29 +1,53 @@
-use axum::extract::{Request, State};
-use axum::routing::get;
-use axum::Router;
-use color_eyre::eyre::{eyre, Result};
+use std::ops::Deref;
+use std::sync::Arc;
+
+use axum::body::Body;
+use axum::extract::State;
+use axum::http::header::LOCATION;
+use axum::http::StatusCode;
+use axum::response::Response;
+use axum::routing::{get, post};
+use axum::{Form, Router};
+use color_eyre::eyre::Result;
 use error::ServerResult;
+use serde::Deserialize;
 use templates::{RenderedTemplate, TemplateEngine};
+use tera::Context;
 use tokio::net::TcpListener;
+use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
+use tracing_subscriber::EnvFilter;
 
 mod error;
 mod templates;
 
+#[derive(Clone)]
+struct ApplicationState {
+    template_engine: TemplateEngine,
+    items: Arc<Mutex<Vec<String>>>,
+}
+
 fn build_router(template_engine: TemplateEngine) -> Router {
+    let state = ApplicationState {
+        template_engine,
+        items: Arc::default(),
+    };
+
     Router::new()
-        .route("/", get(handler))
-        .route("/index", get(templated))
+        .route("/", get(templated))
+        .route("/add", post(add_item))
         .layer(TraceLayer::new_for_http())
         .nest_service("/assets", ServeDir::new("assets"))
-        .with_state(template_engine)
+        .with_state(state)
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     let template_engine = TemplateEngine::new()?;
 
@@ -35,23 +59,43 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn handler(request: Request) -> ServerResult<&'static str> {
-    match request
-        .headers()
-        .get("x-testing")
-        .and_then(|h| h.to_str().ok())
-    {
-        Some("throw-error") => Err(eyre!("Something went wrong!").into()),
-        _ => Ok("Hello World!"),
-    }
-}
-
 async fn templated(
-    State(template_engine): State<TemplateEngine>,
+    State(ApplicationState {
+        template_engine,
+        items,
+    }): State<ApplicationState>,
 ) -> ServerResult<RenderedTemplate> {
-    let rendered = template_engine.render("index.tera.html")?;
+    let mut context = Context::new();
+    context.insert("items", items.lock().await.deref());
+
+    let rendered = template_engine.render("index.tera.html", &context)?;
 
     Ok(rendered)
+}
+
+#[derive(Debug, Deserialize)]
+struct AddItemForm {
+    item: String,
+}
+
+async fn add_item(
+    State(ApplicationState { items, .. }): State<ApplicationState>,
+    Form(AddItemForm { item }): Form<AddItemForm>,
+) -> ServerResult<Response> {
+    tracing::info!(?item, "Got something from the client");
+
+    items.lock().await.push(item);
+
+    Ok(redirect("/")?)
+}
+
+fn redirect(path: &'static str) -> Result<Response> {
+    let res = Response::builder()
+        .status(StatusCode::FOUND)
+        .header(LOCATION, path)
+        .body(Body::empty())?;
+
+    Ok(res)
 }
 
 #[cfg(test)]

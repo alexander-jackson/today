@@ -17,8 +17,8 @@ impl TemplateEngine {
         Ok(Self { inner })
     }
 
-    pub fn render(&self, template: &str) -> Result<RenderedTemplate> {
-        let rendered = self.inner.render(template, &Context::default())?;
+    pub fn render(&self, template: &str, context: &Context) -> Result<RenderedTemplate> {
+        let rendered = self.inner.render(template, context)?;
 
         Ok(RenderedTemplate { inner: rendered })
     }
