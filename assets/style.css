@@ -1,34 +1,35 @@
 body {
-	background-color: #1E201E;
-	color: #ECDFCC;
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-	max-width: 60em;
-	margin: 0 auto;
+  background-color: #1e201e;
+  color: #ecdfcc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  max-width: 60em;
+  margin: 0 auto;
 }
 
 h1 {
-	text-align: center;
-	font-size: 75px;
+  text-align: center;
+  font-size: 75px;
 }
 
 ul {
-	list-style-type: none;
+  list-style-type: none;
 }
 
 li {
-	font-size: 30px;
+  font-size: 30px;
 }
 
-input[type = "checkbox"] {
-	width: 30px;
-	height: 30px;
-	cursor: pointer;
+input[type="checkbox"] {
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
 }
 
 #add-item {
-	width: 60%;
-	height: 30px;
-	font-size: 25px;
-	display: block;
-	margin: 0 auto;
+  width: 60%;
+  height: 30px;
+  font-size: 25px;
+  display: block;
+  margin: 0 auto;
 }
