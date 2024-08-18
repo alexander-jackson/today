@@ -4,7 +4,7 @@ use axum::response::Response;
 use http_body_util::BodyExt;
 use tower_util::ServiceExt;
 
-use crate::build_router;
+use crate::build_app;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -17,7 +17,7 @@ async fn get_body(response: Response) -> Result<String> {
 
 #[tokio::test]
 async fn it_returns_a_static_response() -> Result<()> {
-    let router = build_router();
+    let router = build_app();
     let request = Request::builder().uri("/").body(Body::empty())?;
 
     let response = router.oneshot(request).await?;
@@ -32,7 +32,7 @@ async fn it_returns_a_static_response() -> Result<()> {
 
 #[tokio::test]
 async fn invalid_requests_get_404s() -> Result<()> {
-    let router = build_router();
+    let router = build_app();
     let request = Request::builder()
         .uri("/unknown-path")
         .body(Body::empty())?;
