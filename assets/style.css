@@ -26,8 +26,9 @@ input[type = "checkbox"] {
 }
 
 #add-item {
-	width: 100%;
+	width: 60%;
 	height: 30px;
-	margin: 10px 50px;
 	font-size: 25px;
+	display: block;
+	margin: 0 auto;
 }
