@@ -1,7 +1,7 @@
 use axum::extract::Request;
 use axum::routing::get;
 use axum::Router;
-use color_eyre::eyre::eyre;
+use color_eyre::eyre::{eyre, Result};
 use error::ServerResult;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
@@ -15,7 +15,7 @@ fn build_app() -> Router {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     color_eyre::install()?;
     tracing_subscriber::fmt().init();
 

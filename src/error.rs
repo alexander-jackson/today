@@ -1,6 +1,3 @@
-use core::fmt;
-use std::error::Error;
-
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use color_eyre::Report;
@@ -18,16 +15,12 @@ impl From<Report> for ServerError {
     }
 }
 
-impl fmt::Display for ServerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.inner)
-    }
-}
-
-impl Error for ServerError {}
-
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
-        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("{:?}", self.inner),
+        )
+            .into_response()
     }
 }
