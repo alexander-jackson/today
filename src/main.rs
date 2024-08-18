@@ -8,7 +8,7 @@ use tower_http::trace::TraceLayer;
 
 mod error;
 
-fn build_app() -> Router {
+fn build_router() -> Router {
     Router::new()
         .route("/", get(handler))
         .layer(TraceLayer::new_for_http())
@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     color_eyre::install()?;
     tracing_subscriber::fmt().init();
 
-    let router = build_app();
+    let router = build_router();
     let listener = TcpListener::bind("localhost:8000").await?;
 
     axum::serve(listener, router).await?;
