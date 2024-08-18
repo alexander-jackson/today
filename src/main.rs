@@ -5,6 +5,7 @@ use color_eyre::eyre::{eyre, Result};
 use error::ServerResult;
 use templates::{RenderedTemplate, TemplateEngine};
 use tokio::net::TcpListener;
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
 mod error;
@@ -15,6 +16,7 @@ fn build_router(template_engine: TemplateEngine) -> Router {
         .route("/", get(handler))
         .route("/index", get(templated))
         .layer(TraceLayer::new_for_http())
+        .nest_service("/assets", ServeDir::new("assets"))
         .with_state(template_engine)
 }
 
