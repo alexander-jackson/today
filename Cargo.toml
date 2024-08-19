@@ -10,6 +10,7 @@ color-eyre = "0.6.3"
 dotenvy = "0.15.7"
 serde = { version = "1.0.208", features = ["derive"] }
 sqlx = { version = "0.8.0", features = ["postgres", "runtime-tokio-rustls", "uuid", "chrono"] }
+sqlx-bootstrap = { git = "https://github.com/alexander-jackson/sqlx-bootstrap.git", version = "0.1.0" }
 tera = "1.20.0"
 tokio = { version = "1.39.3", features = ["rt-multi-thread", "macros"] }
 tower = { version = "0.5.0", features = ["tracing"] }
