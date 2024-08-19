@@ -1,1 +1,4 @@
 /target
+
+# Environment-based configuration
+.env

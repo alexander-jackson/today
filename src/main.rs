@@ -9,9 +9,8 @@ use axum::response::Response;
 use axum::routing::{get, patch, post};
 use axum::{Form, Json, Router};
 use color_eyre::eyre::Result;
-use error::ServerResult;
 use serde::{Deserialize, Serialize};
-use templates::{RenderedTemplate, TemplateEngine};
+use sqlx::PgPool;
 use tera::Context;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
@@ -21,7 +20,11 @@ use tracing_subscriber::EnvFilter;
 use uuid::Uuid;
 
 mod error;
+mod persistence;
 mod templates;
+
+use crate::error::ServerResult;
+use crate::templates::{RenderedTemplate, TemplateEngine};
 
 #[derive(Serialize)]
 struct Item {
@@ -33,12 +36,14 @@ struct Item {
 #[derive(Clone)]
 struct ApplicationState {
     template_engine: TemplateEngine,
+    pool: PgPool,
     items: Arc<Mutex<Vec<Item>>>,
 }
 
-fn build_router(template_engine: TemplateEngine) -> Router {
+fn build_router(template_engine: TemplateEngine, pool: PgPool) -> Router {
     let state = ApplicationState {
         template_engine,
+        pool,
         items: Arc::default(),
     };
 
@@ -58,9 +63,16 @@ async fn main() -> Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
+    dotenvy::dotenv().ok();
+
+    let database_url = std::env::var("DATABASE_URL")?;
+    let pool = PgPool::connect(&database_url).await?;
+
+    sqlx::migrate!().run(&pool).await?;
+
     let template_engine = TemplateEngine::new()?;
 
-    let router = build_router(template_engine);
+    let router = build_router(template_engine, pool);
     let listener = TcpListener::bind("localhost:8000").await?;
 
     axum::serve(listener, router).await?;
@@ -71,11 +83,14 @@ async fn main() -> Result<()> {
 async fn templated(
     State(ApplicationState {
         template_engine,
-        items,
+        pool,
+        ..
     }): State<ApplicationState>,
 ) -> ServerResult<RenderedTemplate> {
+    let items = crate::persistence::select_items(&pool).await?;
+
     let mut context = Context::new();
-    context.insert("items", items.lock().await.deref());
+    context.insert("items", &items);
 
     let rendered = template_engine.render("index.tera.html", &context)?;
 
@@ -88,18 +103,14 @@ struct AddItemForm {
 }
 
 async fn add_item(
-    State(ApplicationState { items, .. }): State<ApplicationState>,
+    State(ApplicationState { pool, .. }): State<ApplicationState>,
     Form(AddItemForm { content }): Form<AddItemForm>,
 ) -> ServerResult<Response> {
     tracing::info!(?content, "Got something from the client");
 
-    let item = Item {
-        item_uid: Uuid::new_v4(),
-        content,
-        state: false,
-    };
+    let item_uid = Uuid::new_v4();
 
-    items.lock().await.push(item);
+    crate::persistence::create_item(&pool, item_uid, &content).await?;
 
     Ok(redirect("/")?)
 }
@@ -110,17 +121,11 @@ struct UpdateItemRequest {
 }
 
 async fn update_item(
-    State(ApplicationState { items, .. }): State<ApplicationState>,
+    State(ApplicationState { pool, .. }): State<ApplicationState>,
     Path(item_uid): Path<Uuid>,
     Json(request): Json<UpdateItemRequest>,
 ) -> ServerResult<Response> {
-    let mut items = items.lock().await;
-
-    items
-        .iter_mut()
-        .find(|i| i.item_uid == item_uid)
-        .unwrap()
-        .state = request.state;
+    crate::persistence::update_item(&pool, item_uid, request.state).await?;
 
     Ok(success()?)
 }

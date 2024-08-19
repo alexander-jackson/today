@@ -4,15 +4,16 @@ use axum::http::{Method, Request, StatusCode};
 use axum::response::Response;
 use axum::Router;
 use http_body_util::BodyExt;
+use sqlx::PgPool;
 use tower::Service;
 
 use crate::templates::TemplateEngine;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn build_router() -> Result<Router> {
+fn build_router(pool: PgPool) -> Result<Router> {
     let template_engine = TemplateEngine::new()?;
-    let router = crate::build_router(template_engine);
+    let router = crate::build_router(template_engine, pool);
 
     Ok(router)
 }
@@ -24,9 +25,9 @@ async fn read_full_body(response: Response) -> Result<String> {
     Ok(message)
 }
 
-#[tokio::test]
-async fn can_view_the_index_page() -> Result<()> {
-    let mut router = build_router()?;
+#[sqlx::test]
+async fn can_view_the_index_page(pool: PgPool) -> Result<()> {
+    let mut router = build_router(pool)?;
     let request = Request::builder().uri("/").body(Body::empty())?;
 
     let response = router.call(request).await?;
@@ -47,9 +48,9 @@ async fn can_view_the_index_page() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn invalid_requests_get_404s() -> Result<()> {
-    let mut router = build_router()?;
+#[sqlx::test]
+async fn invalid_requests_get_404s(pool: PgPool) -> Result<()> {
+    let mut router = build_router(pool)?;
     let request = Request::builder()
         .uri("/unknown-path")
         .body(Body::empty())?;
@@ -62,9 +63,9 @@ async fn invalid_requests_get_404s() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn can_add_items() -> Result<()> {
-    let mut router = build_router()?;
+#[sqlx::test]
+async fn can_add_items(pool: PgPool) -> Result<()> {
+    let mut router = build_router(pool)?;
     let request = Request::builder()
         .method(Method::POST)
         .uri("/add")
