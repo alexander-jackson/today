@@ -92,7 +92,7 @@ async fn main() -> Result<()> {
     let template_engine = TemplateEngine::new()?;
 
     let router = build_router(template_engine, pool);
-    let listener = TcpListener::bind("localhost:8000").await?;
+    let listener = TcpListener::bind("0.0.0.0:8000").await?;
 
     axum::serve(listener, router).await?;
 
