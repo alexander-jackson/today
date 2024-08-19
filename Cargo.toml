@@ -13,6 +13,7 @@ tower = { version = "0.5.0", features = ["tracing"] }
 tower-http = { version = "0.5.2", features = ["fs", "trace", "util"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+uuid = { version = "1.10.0", features = ["serde", "v4"] }
 
 [dev-dependencies]
 http-body-util = "0.1.2"

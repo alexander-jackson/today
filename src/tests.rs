@@ -69,7 +69,7 @@ async fn can_add_items() -> Result<()> {
         .method(Method::POST)
         .uri("/add")
         .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-        .body(Body::from("item=Task"))?;
+        .body(Body::from("content=Task"))?;
 
     let response = router.call(request).await?;
     let status = response.status();

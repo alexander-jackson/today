@@ -2,6 +2,7 @@
 <html>
   <head>
     <link rel="stylesheet" href="assets/style.css" />
+    <script type="text/javascript" src="assets/script.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
   </head>
 
@@ -10,15 +11,15 @@
 
     <ul>
       {% for item in items %}
-      <li>
+      <li id="{{ item.item_uid }}">
         <input type="checkbox" />
-        {{ item }}
+        {{ item.content }}
       </li>
       {% endfor %}
     </ul>
 
     <form action="/add" method="post">
-      <input type="text" id="add-item" name="item" />
+      <input type="text" id="add-item" name="content" />
     </form>
   </body>
 </html>

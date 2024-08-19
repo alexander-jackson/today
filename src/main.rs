@@ -10,7 +10,7 @@ use axum::routing::{get, post};
 use axum::{Form, Router};
 use color_eyre::eyre::Result;
 use error::ServerResult;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use templates::{RenderedTemplate, TemplateEngine};
 use tera::Context;
 use tokio::net::TcpListener;
@@ -18,14 +18,21 @@ use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
+use uuid::Uuid;
 
 mod error;
 mod templates;
 
+#[derive(Serialize)]
+struct Item {
+    item_uid: Uuid,
+    content: String,
+}
+
 #[derive(Clone)]
 struct ApplicationState {
     template_engine: TemplateEngine,
-    items: Arc<Mutex<Vec<String>>>,
+    items: Arc<Mutex<Vec<Item>>>,
 }
 
 fn build_router(template_engine: TemplateEngine) -> Router {
@@ -75,14 +82,19 @@ async fn templated(
 
 #[derive(Debug, Deserialize)]
 struct AddItemForm {
-    item: String,
+    content: String,
 }
 
 async fn add_item(
     State(ApplicationState { items, .. }): State<ApplicationState>,
-    Form(AddItemForm { item }): Form<AddItemForm>,
+    Form(AddItemForm { content }): Form<AddItemForm>,
 ) -> ServerResult<Response> {
-    tracing::info!(?item, "Got something from the client");
+    tracing::info!(?content, "Got something from the client");
+
+    let item = Item {
+        item_uid: Uuid::new_v4(),
+        content,
+    };
 
     items.lock().await.push(item);
 
