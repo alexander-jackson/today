@@ -1,6 +1,3 @@
-use std::ops::Deref;
-use std::sync::Arc;
-
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::header::LOCATION;
@@ -13,7 +10,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use tera::Context;
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
@@ -37,14 +33,12 @@ struct Item {
 struct ApplicationState {
     template_engine: TemplateEngine,
     pool: PgPool,
-    items: Arc<Mutex<Vec<Item>>>,
 }
 
 fn build_router(template_engine: TemplateEngine, pool: PgPool) -> Router {
     let state = ApplicationState {
         template_engine,
         pool,
-        items: Arc::default(),
     };
 
     Router::new()
