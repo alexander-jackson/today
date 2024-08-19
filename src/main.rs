@@ -5,9 +5,10 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use axum::routing::{get, patch, post};
 use axum::{Form, Json, Router};
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use sqlx_bootstrap::{ApplicationConfig, BootstrapConfig, ConnectionConfig, RootConfig};
 use tera::Context;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
@@ -50,6 +51,34 @@ fn build_router(template_engine: TemplateEngine, pool: PgPool) -> Router {
         .with_state(state)
 }
 
+fn get_env_var(key: &str) -> Result<String> {
+    std::env::var(key).map_err(|_| eyre!("Failed to get environment variable '{key}'"))
+}
+
+async fn bootstrap_database() -> Result<PgPool> {
+    let root_username = get_env_var("ROOT_USERNAME")?;
+    let root_password = get_env_var("ROOT_PASSWORD")?;
+    let root_database = get_env_var("ROOT_DATABASE")?;
+
+    let app_username = get_env_var("APP_USERNAME")?;
+    let app_password = get_env_var("APP_PASSWORD")?;
+    let app_database = get_env_var("APP_DATABASE")?;
+
+    let host = get_env_var("DATABASE_HOST")?;
+    let port = get_env_var("DATABASE_PORT")?.parse()?;
+
+    let root_config = RootConfig::new(&root_username, &root_password, &root_database);
+    let app_config = ApplicationConfig::new(&app_username, &app_password, &app_database);
+    let conn_config = ConnectionConfig::new(&host, port);
+
+    let config = BootstrapConfig::new(root_config, app_config, conn_config);
+    let pool = config.bootstrap().await?;
+
+    sqlx::migrate!().run(&pool).await?;
+
+    Ok(pool)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
@@ -59,11 +88,7 @@ async fn main() -> Result<()> {
 
     dotenvy::dotenv().ok();
 
-    let database_url = std::env::var("DATABASE_URL")?;
-    let pool = PgPool::connect(&database_url).await?;
-
-    sqlx::migrate!().run(&pool).await?;
-
+    let pool = bootstrap_database().await?;
     let template_engine = TemplateEngine::new()?;
 
     let router = build_router(template_engine, pool);

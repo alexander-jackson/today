@@ -1747,6 +1747,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sqlx-bootstrap"
+version = "0.1.0"
+source = "git+https://github.com/alexander-jackson/sqlx-bootstrap.git#3c37b2990e933173748be0950bc261dd89113d5a"
+dependencies = [
+ "sqlx",
+ "tracing",
+]
+
+[[package]]
 name = "sqlx-core"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2080,6 +2089,7 @@ dependencies = [
  "http-body-util",
  "serde",
  "sqlx",
+ "sqlx-bootstrap",
  "tera",
  "tokio",
  "tower 0.5.0",
