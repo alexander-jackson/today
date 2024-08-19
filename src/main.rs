@@ -2,12 +2,12 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::header::LOCATION;
 use axum::http::StatusCode;
 use axum::response::Response;
-use axum::routing::{get, post};
-use axum::{Form, Router};
+use axum::routing::{get, patch, post};
+use axum::{Form, Json, Router};
 use color_eyre::eyre::Result;
 use error::ServerResult;
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,7 @@ mod templates;
 struct Item {
     item_uid: Uuid,
     content: String,
+    state: bool,
 }
 
 #[derive(Clone)]
@@ -44,6 +45,7 @@ fn build_router(template_engine: TemplateEngine) -> Router {
     Router::new()
         .route("/", get(templated))
         .route("/add", post(add_item))
+        .route("/update/:item_uid", patch(update_item))
         .layer(TraceLayer::new_for_http())
         .nest_service("/assets", ServeDir::new("assets"))
         .with_state(state)
@@ -94,11 +96,41 @@ async fn add_item(
     let item = Item {
         item_uid: Uuid::new_v4(),
         content,
+        state: false,
     };
 
     items.lock().await.push(item);
 
     Ok(redirect("/")?)
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateItemRequest {
+    state: bool,
+}
+
+async fn update_item(
+    State(ApplicationState { items, .. }): State<ApplicationState>,
+    Path(item_uid): Path<Uuid>,
+    Json(request): Json<UpdateItemRequest>,
+) -> ServerResult<Response> {
+    let mut items = items.lock().await;
+
+    items
+        .iter_mut()
+        .find(|i| i.item_uid == item_uid)
+        .unwrap()
+        .state = request.state;
+
+    Ok(success()?)
+}
+
+fn success() -> Result<Response> {
+    let res = Response::builder()
+        .status(StatusCode::OK)
+        .body(Body::empty())?;
+
+    Ok(res)
 }
 
 fn redirect(path: &'static str) -> Result<Response> {

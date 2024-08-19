@@ -11,8 +11,19 @@
 
     <ul>
       {% for item in items %}
-      <li id="{{ item.item_uid }}">
-        <input type="checkbox" />
+      <li>
+        <input
+          type="checkbox"
+          id="{{ item.item_uid }}"
+          {%
+          if
+          item.state
+          %}
+          checked
+          {%
+          endif
+          %}
+        />
         {{ item.content }}
       </li>
       {% endfor %}
