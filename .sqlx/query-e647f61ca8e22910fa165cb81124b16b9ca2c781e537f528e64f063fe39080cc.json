@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO item_event (item_id, event_type_id, occurred_at)\n            VALUES (\n                (SELECT id FROM item WHERE item_uid = $1),\n                (SELECT id FROM item_event_type WHERE name = 'Unchecked'),\n                $2\n            )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamp"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e647f61ca8e22910fa165cb81124b16b9ca2c781e537f528e64f063fe39080cc"
+}
