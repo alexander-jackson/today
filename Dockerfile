@@ -32,4 +32,6 @@ RUN cargo build --release --target x86_64-unknown-linux-musl --bin today
 
 FROM gcr.io/distroless/static
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/today .
+COPY ./templates ./templates
+COPY ./assets ./assets
 ENTRYPOINT ["./today"]

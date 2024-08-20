@@ -1,3 +1,5 @@
+use std::net::{Ipv4Addr, SocketAddrV4};
+
 use axum::body::Body;
 use axum::extract::{Path, State};
 use axum::http::header::LOCATION;
@@ -92,7 +94,11 @@ async fn main() -> Result<()> {
     let template_engine = TemplateEngine::new()?;
 
     let router = build_router(template_engine, pool);
-    let listener = TcpListener::bind("0.0.0.0:8000").await?;
+
+    let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8000);
+    let listener = TcpListener::bind(addr).await?;
+
+    tracing::info!(?addr, "listening for incoming requests");
 
     axum::serve(listener, router).await?;
 
