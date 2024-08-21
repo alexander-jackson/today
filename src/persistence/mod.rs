@@ -1,13 +1,11 @@
-use chrono::{NaiveDateTime, Utc};
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use color_eyre::eyre::Result;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::Item;
 
-pub async fn select_items(pool: &PgPool, now: NaiveDateTime) -> Result<Vec<Item>> {
-    let today = now.date();
-
+pub async fn select_items(pool: &PgPool, date: NaiveDate) -> Result<Vec<Item>> {
     let items = sqlx::query_as!(
         Item,
         r#"
@@ -21,7 +19,7 @@ pub async fn select_items(pool: &PgPool, now: NaiveDateTime) -> Result<Vec<Item>
             WHERE i.created_at::date = $1
             ORDER BY i.id, i.created_at, ie.occurred_at DESC
         "#,
-        today,
+        date,
     )
     .fetch_all(pool)
     .await?;
