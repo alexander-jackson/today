@@ -113,7 +113,7 @@ async fn templated(
         ..
     }): State<ApplicationState>,
 ) -> ServerResult<RenderedTemplate> {
-    let now = Utc::now().naive_local();
+    let now = Utc::now().date_naive();
     let items = crate::persistence::select_items(&pool, now).await?;
 
     let mut context = Context::new();
