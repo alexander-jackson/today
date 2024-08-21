@@ -116,8 +116,22 @@ async fn templated(
     let now = Utc::now().date_naive();
     let items = crate::persistence::select_items(&pool, now).await?;
 
+    let mut checked_items = Vec::new();
+    let mut unchecked_items = Vec::new();
+
+    for item in items {
+        let target = if item.state {
+            &mut checked_items
+        } else {
+            &mut unchecked_items
+        };
+
+        target.push(item);
+    }
+
     let mut context = Context::new();
-    context.insert("items", &items);
+    context.insert("checked_items", &checked_items);
+    context.insert("unchecked_items", &unchecked_items);
 
     let rendered = template_engine.render("index.tera.html", &context)?;
 
