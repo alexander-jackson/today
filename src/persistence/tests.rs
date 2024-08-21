@@ -36,3 +36,31 @@ fn items_are_only_returned_for_the_current_day(pool: PgPool) -> Result<()> {
 
     Ok(())
 }
+
+#[sqlx::test]
+fn item_states_can_be_modified(pool: PgPool) -> Result<()> {
+    let now = Utc::now().naive_local();
+
+    // Insert an item to modify
+    let item_uid = create_item(&pool, "Content", now).await?;
+
+    // Check it's currently unchecked
+    let items = super::select_items(&pool, now).await?;
+    assert_eq!(items[0].state, false);
+
+    // Modify the item
+    super::update_item(&pool, item_uid, true).await?;
+
+    // Check the new state is reflected
+    let items = super::select_items(&pool, now).await?;
+    assert_eq!(items[0].state, true);
+
+    // Update it back to be unchecked
+    super::update_item(&pool, item_uid, false).await?;
+
+    // Check it's back to what it was before
+    let items = super::select_items(&pool, now).await?;
+    assert_eq!(items[0].state, false);
+
+    Ok(())
+}
