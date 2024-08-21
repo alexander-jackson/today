@@ -7,6 +7,7 @@ use axum::http::StatusCode;
 use axum::response::Response;
 use axum::routing::{get, patch, post};
 use axum::{Form, Json, Router};
+use chrono::Utc;
 use color_eyre::eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
@@ -112,7 +113,8 @@ async fn templated(
         ..
     }): State<ApplicationState>,
 ) -> ServerResult<RenderedTemplate> {
-    let items = crate::persistence::select_items(&pool).await?;
+    let now = Utc::now().naive_local();
+    let items = crate::persistence::select_items(&pool, now).await?;
 
     let mut context = Context::new();
     context.insert("items", &items);
@@ -134,8 +136,9 @@ async fn add_item(
     tracing::info!(?content, "Got something from the client");
 
     let item_uid = Uuid::new_v4();
+    let now = Utc::now().naive_local();
 
-    crate::persistence::create_item(&pool, item_uid, &content).await?;
+    crate::persistence::create_item(&pool, item_uid, &content, now).await?;
 
     Ok(redirect("/")?)
 }
