@@ -1,11 +1,13 @@
-use chrono::Utc;
+use chrono::{NaiveDateTime, Utc};
 use color_eyre::eyre::Result;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::Item;
 
-pub async fn select_items(pool: &PgPool) -> Result<Vec<Item>> {
+pub async fn select_items(pool: &PgPool, now: NaiveDateTime) -> Result<Vec<Item>> {
+    let today = now.date();
+
     let items = sqlx::query_as!(
         Item,
         r#"
@@ -16,8 +18,10 @@ pub async fn select_items(pool: &PgPool) -> Result<Vec<Item>> {
             FROM item i
             JOIN item_event ie ON i.id = ie.item_id
             JOIN item_event_type iet ON iet.id = ie.event_type_id
+            WHERE i.created_at::date = $1
             ORDER BY i.id, i.created_at, ie.occurred_at DESC
-        "#
+        "#,
+        today,
     )
     .fetch_all(pool)
     .await?;
@@ -25,9 +29,13 @@ pub async fn select_items(pool: &PgPool) -> Result<Vec<Item>> {
     Ok(items)
 }
 
-pub async fn create_item(pool: &PgPool, item_uid: Uuid, content: &str) -> Result<()> {
+pub async fn create_item(
+    pool: &PgPool,
+    item_uid: Uuid,
+    content: &str,
+    created_at: NaiveDateTime,
+) -> Result<()> {
     let mut tx = pool.begin().await?;
-    let now = Utc::now().naive_local();
 
     sqlx::query!(
         r#"
@@ -36,7 +44,7 @@ pub async fn create_item(pool: &PgPool, item_uid: Uuid, content: &str) -> Result
         "#,
         item_uid,
         content,
-        now,
+        created_at,
     )
     .execute(&mut *tx)
     .await?;
@@ -51,7 +59,7 @@ pub async fn create_item(pool: &PgPool, item_uid: Uuid, content: &str) -> Result
             )
         "#,
         item_uid,
-        now,
+        created_at,
     )
     .execute(&mut *tx)
     .await?;
@@ -87,3 +95,6 @@ pub async fn update_item(pool: &PgPool, item_uid: Uuid, state: bool) -> Result<(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
