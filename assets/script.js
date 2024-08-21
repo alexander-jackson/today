@@ -11,6 +11,19 @@ const onDocumentLoad = () => {
         headers: {
           "Content-Type": "application/json",
         },
+      }).then(() => {
+        const checkedItems = document.getElementById("checked-items");
+        const uncheckedItems = document.getElementById("unchecked-items");
+
+        const listElement = checkbox.parentNode;
+
+        if (state) {
+          uncheckedItems.removeChild(listElement);
+          checkedItems.appendChild(listElement);
+        } else {
+          checkedItems.removeChild(listElement);
+          uncheckedItems.appendChild(listElement);
+        }
       });
     };
   }
