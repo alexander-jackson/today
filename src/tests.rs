@@ -13,7 +13,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 fn build_router(pool: PgPool) -> Result<Router> {
     let template_engine = TemplateEngine::new()?;
-    let router = crate::build_router(template_engine, pool);
+    let router = crate::router::build(template_engine, pool);
 
     Ok(router)
 }

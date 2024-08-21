@@ -1,9 +1,17 @@
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use color_eyre::eyre::Result;
+use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::Item;
+pub mod bootstrap;
+
+#[derive(Serialize)]
+pub struct Item {
+    item_uid: Uuid,
+    content: String,
+    pub state: bool,
+}
 
 pub async fn select_items(pool: &PgPool, date: NaiveDate) -> Result<Vec<Item>> {
     let items = sqlx::query_as!(
