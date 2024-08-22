@@ -15,6 +15,7 @@ use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
 use crate::error::ServerResult;
+use crate::persistence::ItemState;
 use crate::templates::{RenderedTemplate, TemplateEngine};
 
 #[derive(Clone)]
@@ -52,13 +53,13 @@ async fn templated(
     let mut unchecked_items = Vec::new();
 
     for item in items {
-        let target = if item.state {
-            &mut checked_items
-        } else {
-            &mut unchecked_items
+        match item.state {
+            ItemState::Checked => checked_items.push(item),
+            ItemState::Unchecked => unchecked_items.push(item),
+            ItemState::Deleted => {
+                // intentionally ignored
+            }
         };
-
-        target.push(item);
     }
 
     let mut context = Context::new();
@@ -91,7 +92,7 @@ async fn add_item(
 
 #[derive(Debug, Deserialize)]
 struct UpdateItemRequest {
-    state: bool,
+    state: ItemState,
 }
 
 async fn update_item(

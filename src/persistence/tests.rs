@@ -5,6 +5,8 @@ use color_eyre::eyre::Result;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::persistence::ItemState;
+
 async fn create_item(pool: &PgPool, content: &str, created_at: NaiveDateTime) -> Result<Uuid> {
     let item_uid = Uuid::new_v4();
 
@@ -48,21 +50,46 @@ fn item_states_can_be_modified(pool: PgPool) -> Result<()> {
 
     // Check it's currently unchecked
     let items = super::select_items(&pool, today).await?;
-    assert_eq!(items[0].state, false);
+    assert_eq!(items[0].state, ItemState::Unchecked);
 
     // Modify the item
-    super::update_item(&pool, item_uid, true).await?;
+    super::update_item(&pool, item_uid, ItemState::Checked).await?;
 
     // Check the new state is reflected
     let items = super::select_items(&pool, today).await?;
-    assert_eq!(items[0].state, true);
+    assert_eq!(items[0].state, ItemState::Checked);
 
     // Update it back to be unchecked
-    super::update_item(&pool, item_uid, false).await?;
+    super::update_item(&pool, item_uid, ItemState::Unchecked).await?;
 
     // Check it's back to what it was before
     let items = super::select_items(&pool, today).await?;
-    assert_eq!(items[0].state, false);
+    assert_eq!(items[0].state, ItemState::Unchecked);
+
+    Ok(())
+}
+
+#[sqlx::test]
+fn deleted_items_do_not_get_returned(pool: PgPool) -> Result<()> {
+    let now = Utc::now().naive_local();
+    let today = now.date();
+
+    // Create 2 items
+    let item_uid1 = create_item(&pool, "First", now).await?;
+    let item_uid2 = create_item(&pool, "Second", now).await?;
+
+    // Mark the first as deleted
+    super::update_item(&pool, item_uid1, ItemState::Deleted).await?;
+
+    // Fetch all the items and assert we just have the second
+    let items: HashSet<_> = super::select_items(&pool, today)
+        .await?
+        .iter()
+        .map(|i| i.item_uid)
+        .collect();
+
+    assert!(!items.contains(&item_uid1));
+    assert!(items.contains(&item_uid2));
 
     Ok(())
 }
