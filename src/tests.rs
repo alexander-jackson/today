@@ -66,6 +66,18 @@ async fn invalid_requests_get_404s(pool: PgPool) -> Result<()> {
 #[sqlx::test]
 async fn can_add_items(pool: PgPool) -> Result<()> {
     let mut router = build_router(pool)?;
+
+    // Create an account
+    let request = Request::builder()
+        .method(Method::PUT)
+        .uri("/register")
+        .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .body(Body::from(
+            "email_address=test@test.com&raw_password=password",
+        ))?;
+
+    router.call(request).await?;
+
     let request = Request::builder()
         .method(Method::POST)
         .uri("/add")
