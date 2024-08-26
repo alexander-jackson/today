@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
         decoding_key,
     );
 
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, 8000);
+    let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8000);
     let listener = TcpListener::bind(addr).await?;
 
     tracing::info!(?addr, "listening for incoming requests");
