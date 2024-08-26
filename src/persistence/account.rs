@@ -21,7 +21,8 @@ pub struct HashedPassword(String);
 
 impl HashedPassword {
     pub fn from_raw<T: AsRef<str>>(value: T) -> Result<Self> {
-        let hashed = bcrypt::hash(value.as_ref(), bcrypt::DEFAULT_COST)?;
+        let cost = if cfg!(test) { 4 } else { bcrypt::DEFAULT_COST };
+        let hashed = bcrypt::hash(value.as_ref(), cost)?;
 
         Ok(Self(hashed))
     }

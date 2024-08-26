@@ -1,5 +1,5 @@
 use axum::body::Body;
-use axum::http::header::{CONTENT_TYPE, COOKIE, LOCATION, SET_COOKIE};
+use axum::http::header::{AsHeaderName, CONTENT_TYPE, COOKIE, LOCATION, SET_COOKIE};
 use axum::http::{Method, Request, StatusCode};
 use axum::response::Response;
 use axum::Router;
@@ -11,6 +11,8 @@ use sqlx::PgPool;
 use tower::Service;
 
 use crate::templates::TemplateEngine;
+
+const FORM_MIME_TYPE: &str = "application/x-www-form-urlencoded";
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -38,6 +40,44 @@ async fn read_full_body(response: Response) -> Result<String> {
     Ok(message)
 }
 
+fn get_response_header<'a, K: AsHeaderName>(response: &'a Response, header: K) -> Option<&'a str> {
+    response.headers().get(header).and_then(|h| h.to_str().ok())
+}
+
+async fn create_account(router: &mut Router) -> Result<()> {
+    let request = Request::builder()
+        .method(Method::PUT)
+        .uri("/register")
+        .header(CONTENT_TYPE, FORM_MIME_TYPE)
+        .body(Body::from(
+            "email_address=test@test.com&raw_password=password",
+        ))?;
+
+    router.call(request).await?;
+
+    Ok(())
+}
+
+async fn login_to_account(router: &mut Router) -> Result<(Response, String)> {
+    let request = Request::builder()
+        .method(Method::POST)
+        .uri("/login")
+        .header(CONTENT_TYPE, FORM_MIME_TYPE)
+        .body(Body::from(
+            "email_address=test@test.com&raw_password=password",
+        ))?;
+
+    let response = router.call(request).await?;
+    let cookie = response
+        .headers()
+        .get(SET_COOKIE)
+        .ok_or_else(|| eyre!("Failed to get a cookie from the response"))?
+        .to_str()?
+        .to_owned();
+
+    Ok((response, cookie))
+}
+
 #[sqlx::test]
 async fn invalid_requests_get_404s(pool: PgPool) -> Result<()> {
     let mut router = build_router(pool)?;
@@ -58,66 +98,40 @@ async fn can_add_items(pool: PgPool) -> Result<()> {
     let mut router = build_router(pool)?;
 
     // Create an account
-    let request = Request::builder()
-        .method(Method::PUT)
-        .uri("/register")
-        .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-        .body(Body::from(
-            "email_address=test@test.com&raw_password=password",
-        ))?;
-
-    router.call(request).await?;
+    create_account(&mut router).await?;
 
     // Log in to the account to get a token
-    let request = Request::builder()
-        .method(Method::POST)
-        .uri("/login")
-        .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-        .body(Body::from(
-            "email_address=test@test.com&raw_password=password",
-        ))?;
+    let (response, cookie) = login_to_account(&mut router).await?;
 
-    let response = router.call(request).await?;
-    let cookie = response
-        .headers()
-        .get(SET_COOKIE)
-        .ok_or_else(|| eyre!("Failed to get a cookie from the response"))?
-        .to_str()?;
+    assert_eq!(response.status(), StatusCode::FOUND);
+    assert_eq!(get_response_header(&response, LOCATION), Some("/"));
 
     let request = Request::builder()
         .method(Method::POST)
         .uri("/add")
-        .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
-        .header(COOKIE, cookie)
+        .header(CONTENT_TYPE, FORM_MIME_TYPE)
+        .header(COOKIE, &cookie)
         .body(Body::from("content=Task"))?;
 
     let response = router.call(request).await?;
-    let status = response.status();
-    let location = response
-        .headers()
-        .get(LOCATION)
-        .and_then(|h| h.to_str().ok());
 
     // Get redirected to the index page
-    assert_eq!(status, StatusCode::FOUND);
-    assert_eq!(location, Some("/"));
+    assert_eq!(response.status(), StatusCode::FOUND);
+    assert_eq!(get_response_header(&response, LOCATION), Some("/"));
 
     let request = Request::builder()
         .method(Method::GET)
         .uri("/")
-        .header(COOKIE, cookie)
+        .header(COOKIE, &cookie)
         .body(Body::empty())?;
 
     let response = router.call(request).await?;
 
-    let status = response.status();
-    let content_type = response
-        .headers()
-        .get(CONTENT_TYPE)
-        .and_then(|h| h.to_str().ok());
-
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(content_type, Some("text/html"));
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        get_response_header(&response, CONTENT_TYPE),
+        Some("text/html")
+    );
 
     let body = read_full_body(response).await?;
 
