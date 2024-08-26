@@ -1,10 +1,8 @@
-use color_eyre::eyre::{eyre, Result};
+use color_eyre::eyre::Result;
 use sqlx::PgPool;
 use sqlx_bootstrap::{ApplicationConfig, BootstrapConfig, ConnectionConfig, RootConfig};
 
-fn get_env_var(key: &str) -> Result<String> {
-    std::env::var(key).map_err(|_| eyre!("Failed to get environment variable '{key}'"))
-}
+use crate::utils::get_env_var;
 
 pub async fn run() -> Result<PgPool> {
     let root_username = get_env_var("ROOT_USERNAME")?;
