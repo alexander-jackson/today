@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO account (account_uid, email_address, password, created_at)\n            VALUES ($1, $2, $3, now()::timestamp)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8f535edbc11a1126ee093e5fe246678b9eec01caa5b16f08750c75a8fee9bd36"
+}
