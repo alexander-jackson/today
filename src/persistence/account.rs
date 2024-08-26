@@ -28,9 +28,9 @@ impl HashedPassword {
 }
 
 pub struct Account {
-    account_uid: Uuid,
-    email_address: String,
-    password: String,
+    pub account_uid: Uuid,
+    pub email_address: String,
+    pub password: String,
 }
 
 pub async fn create_account(
@@ -71,7 +71,7 @@ pub async fn select_oldest(pool: &PgPool) -> Result<Option<Uuid>> {
 
 pub async fn fetch_account_by_email(
     pool: &PgPool,
-    email_address: EmailAddress,
+    email_address: &EmailAddress,
 ) -> Result<Option<Account>> {
     let account = sqlx::query_as!(
         Account,
@@ -101,7 +101,8 @@ mod tests {
 
     #[sqlx::test]
     async fn non_existent_email_addresses_return_no_results(pool: PgPool) -> Result<()> {
-        let account = fetch_account_by_email(&pool, "example@domain.com".into()).await?;
+        let email_address = EmailAddress::from("example@domain.com");
+        let account = fetch_account_by_email(&pool, &email_address).await?;
 
         assert!(account.is_none());
 
@@ -118,7 +119,7 @@ mod tests {
         create_account(&pool, account_uid, &email_address, &password).await?;
 
         // Validate we can fetch it by email again
-        let account = fetch_account_by_email(&pool, email_address).await?;
+        let account = fetch_account_by_email(&pool, &email_address).await?;
 
         assert_eq!(account.map(|a| a.account_uid), Some(account_uid));
 
