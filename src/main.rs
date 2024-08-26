@@ -11,8 +11,10 @@ mod error;
 mod persistence;
 mod router;
 mod templates;
+mod utils;
 
 use crate::templates::TemplateEngine;
+use crate::utils::get_env_var;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,9 +27,9 @@ async fn main() -> Result<()> {
 
     let pool = crate::persistence::bootstrap::run().await?;
     let template_engine = TemplateEngine::new()?;
-    let cookie_key = Key::from(std::env::var("COOKIE_KEY")?.as_bytes());
+    let cookie_key = Key::from(get_env_var("COOKIE_KEY")?.as_bytes());
 
-    let jwt_key = std::env::var("JWT_KEY")?;
+    let jwt_key = get_env_var("JWT_KEY")?;
     let encoding_key = EncodingKey::from_secret(jwt_key.as_bytes());
     let decoding_key = DecodingKey::from_secret(jwt_key.as_bytes());
 
