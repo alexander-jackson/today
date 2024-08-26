@@ -6,7 +6,7 @@ use axum::response::Response;
 use axum::routing::{get, patch, post, put};
 use axum::Router;
 use chrono::Utc;
-use color_eyre::eyre::Result;
+use color_eyre::eyre::{eyre, Result};
 use serde::Deserialize;
 use sqlx::PgPool;
 use tera::Context;
@@ -115,7 +115,12 @@ async fn add_item(
     let item_uid = Uuid::new_v4();
     let now = Utc::now().naive_local();
 
-    crate::persistence::create_item(&pool, item_uid, &content, now).await?;
+    // Select the oldest account, since that's the only one that is presumed to exist
+    let account_uid = crate::persistence::account::select_oldest(&pool)
+        .await?
+        .ok_or_else(|| eyre!("No accounts currently exist to create items for"))?;
+
+    crate::persistence::create_item(&pool, account_uid, item_uid, &content, now).await?;
 
     Ok(redirect("/")?)
 }

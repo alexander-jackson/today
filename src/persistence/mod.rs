@@ -71,6 +71,7 @@ pub async fn select_items(pool: &PgPool, date: NaiveDate) -> Result<Vec<Item>> {
 
 pub async fn create_item(
     pool: &PgPool,
+    account_uid: Uuid,
     item_uid: Uuid,
     content: &str,
     created_at: NaiveDateTime,
@@ -79,9 +80,10 @@ pub async fn create_item(
 
     sqlx::query!(
         r#"
-            INSERT INTO item (item_uid, content, created_at)
-            VALUES ($1, $2, $3)
+            INSERT INTO item (account_id, item_uid, content, created_at)
+            VALUES ((SELECT id FROM account WHERE account_uid = $1), $2, $3, $4)
         "#,
+        account_uid,
         item_uid,
         content,
         created_at,

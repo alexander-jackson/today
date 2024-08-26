@@ -54,6 +54,21 @@ pub async fn create_account(
     Ok(())
 }
 
+pub async fn select_oldest(pool: &PgPool) -> Result<Option<Uuid>> {
+    let account_uid = sqlx::query_scalar!(
+        r#"
+            SELECT account_uid
+            FROM account
+            ORDER BY created_at
+            LIMIT 1
+        "#
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(account_uid)
+}
+
 pub async fn fetch_account_by_email(
     pool: &PgPool,
     email_address: EmailAddress,
