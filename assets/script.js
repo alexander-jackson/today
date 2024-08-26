@@ -3,7 +3,7 @@ const onDocumentLoad = () => {
 
   for (const checkbox of checkboxes) {
     checkbox.onclick = async () => {
-      const state = checkbox.checked ? 'Checked' : 'Unchecked';
+      const state = checkbox.checked ? "Checked" : "Unchecked";
 
       await fetch(`/update/${checkbox.id}`, {
         method: "PATCH",
@@ -17,7 +17,7 @@ const onDocumentLoad = () => {
 
         const listElement = checkbox.parentNode;
 
-        if (state === 'Checked') {
+        if (state === "Checked") {
           uncheckedItems.removeChild(listElement);
           checkedItems.appendChild(listElement);
         } else {
