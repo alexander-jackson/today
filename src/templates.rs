@@ -1,5 +1,5 @@
 use axum::body::Body;
-use axum::http::header::CONTENT_TYPE;
+use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use color_eyre::eyre::Result;
@@ -33,6 +33,7 @@ impl IntoResponse for RenderedTemplate {
         Response::builder()
             .status(StatusCode::OK)
             .header(CONTENT_TYPE, "text/html")
+            .header(CACHE_CONTROL, "no-store")
             .body(Body::from(self.inner))
             .unwrap()
     }
