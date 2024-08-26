@@ -3,7 +3,7 @@ use axum::extract::{Form, Json, Path, State};
 use axum::http::header::LOCATION;
 use axum::http::StatusCode;
 use axum::response::Response;
-use axum::routing::{get, patch, post};
+use axum::routing::{get, patch, post, put};
 use axum::Router;
 use chrono::Utc;
 use color_eyre::eyre::Result;
@@ -15,6 +15,7 @@ use tower_http::trace::TraceLayer;
 use uuid::Uuid;
 
 use crate::error::ServerResult;
+use crate::persistence::account::{EmailAddress, HashedPassword};
 use crate::persistence::ItemState;
 use crate::templates::{RenderedTemplate, TemplateEngine};
 
@@ -32,6 +33,7 @@ pub fn build(template_engine: TemplateEngine, pool: PgPool) -> Router {
 
     Router::new()
         .route("/", get(templated))
+        .route("/register", put(register))
         .route("/add", post(add_item))
         .route("/update/:item_uid", patch(update_item))
         .layer(TraceLayer::new_for_http())
@@ -69,6 +71,34 @@ async fn templated(
     let rendered = template_engine.render("index.tera.html", &context)?;
 
     Ok(rendered)
+}
+
+#[derive(Debug, Deserialize)]
+struct Registration {
+    email_address: String,
+    raw_password: String,
+}
+
+async fn register(
+    State(ApplicationState { pool, .. }): State<ApplicationState>,
+    Form(Registration {
+        email_address,
+        raw_password,
+    }): Form<Registration>,
+) -> ServerResult<Response> {
+    let account_uid = Uuid::new_v4();
+    let email_address = EmailAddress::from(email_address);
+    let hashed_password = HashedPassword::from_raw(&raw_password)?;
+
+    crate::persistence::account::create_account(
+        &pool,
+        account_uid,
+        &email_address,
+        &hashed_password,
+    )
+    .await?;
+
+    Ok(success()?)
 }
 
 #[derive(Debug, Deserialize)]

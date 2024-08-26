@@ -16,17 +16,28 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct HashedPassword(String);
+
+impl HashedPassword {
+    pub fn from_raw<T: AsRef<str>>(value: T) -> Result<Self> {
+        let hashed = bcrypt::hash(value.as_ref(), bcrypt::DEFAULT_COST)?;
+
+        Ok(Self(hashed))
+    }
+}
+
 pub struct Account {
     account_uid: Uuid,
     email_address: String,
     password: String,
 }
 
-async fn create_account(
+pub async fn create_account(
     pool: &PgPool,
     account_uid: Uuid,
     email_address: &EmailAddress,
-    password: &str,
+    password: &HashedPassword,
 ) -> Result<()> {
     sqlx::query!(
         r#"
@@ -35,7 +46,7 @@ async fn create_account(
         "#,
         account_uid,
         email_address.0,
-        password
+        password.0
     )
     .execute(pool)
     .await?;
@@ -67,12 +78,11 @@ pub async fn fetch_account_by_email(
 
 #[cfg(test)]
 mod tests {
-    use bcrypt::DEFAULT_COST;
     use color_eyre::eyre::Result;
     use sqlx::PgPool;
     use uuid::Uuid;
 
-    use super::{create_account, fetch_account_by_email, EmailAddress};
+    use super::{create_account, fetch_account_by_email, EmailAddress, HashedPassword};
 
     #[sqlx::test]
     async fn non_existent_email_addresses_return_no_results(pool: PgPool) -> Result<()> {
@@ -87,7 +97,7 @@ mod tests {
     async fn accounts_can_be_created(pool: PgPool) -> Result<()> {
         let account_uid = Uuid::new_v4();
         let email_address = EmailAddress::from("john@gmail.com");
-        let password = bcrypt::hash("password", DEFAULT_COST)?;
+        let password = HashedPassword::from_raw("password")?;
 
         // Insert the account
         create_account(&pool, account_uid, &email_address, &password).await?;
@@ -103,7 +113,7 @@ mod tests {
     #[sqlx::test]
     async fn cannot_create_multiple_accounts_with_same_email(pool: PgPool) -> Result<()> {
         let email_address = EmailAddress::from("john@gmail.com");
-        let password = bcrypt::hash("password", DEFAULT_COST)?;
+        let password = HashedPassword::from_raw("password")?;
 
         // Insert the account
         create_account(&pool, Uuid::new_v4(), &email_address, &password).await?;

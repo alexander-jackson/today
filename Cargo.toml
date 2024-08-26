@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7.5"
+bcrypt = "0.15.1"
 chrono = { version = "0.4.38", default-features = false, features = ["now"] }
 color-eyre = "0.6.3"
 dotenvy = "0.15.7"
@@ -20,6 +21,5 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 uuid = { version = "1.10.0", features = ["serde", "v4"] }
 
 [dev-dependencies]
-bcrypt = "0.15.1"
 http-body-util = "0.1.2"
 tower-util = "0.3.1"
