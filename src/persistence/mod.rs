@@ -42,7 +42,7 @@ pub struct Item {
     pub state: ItemState,
 }
 
-pub async fn select_items(pool: &PgPool, date: NaiveDate) -> Result<Vec<Item>> {
+pub async fn select_items(pool: &PgPool, account_uid: Uuid, date: NaiveDate) -> Result<Vec<Item>> {
     let items = sqlx::query_as!(
         Item,
         r#"
@@ -52,15 +52,18 @@ pub async fn select_items(pool: &PgPool, date: NaiveDate) -> Result<Vec<Item>> {
                     i.content,
                     iet.name AS state
                 FROM item i
+                JOIN account a ON a.id = i.account_id
                 JOIN item_event ie ON i.id = ie.item_id
                 JOIN item_event_type iet ON iet.id = ie.event_type_id
-                WHERE i.created_at::date = $1
+                WHERE a.account_uid = $1
+                AND i.created_at::date = $2
                 ORDER BY i.id, i.created_at, ie.occurred_at DESC
             )
             SELECT item_uid, content, state
             FROM items_with_states
             WHERE state != 'Deleted'
         "#,
+        account_uid,
         date,
     )
     .fetch_all(pool)
@@ -111,7 +114,12 @@ pub async fn create_item(
     Ok(())
 }
 
-pub async fn update_item(pool: &PgPool, item_uid: Uuid, state: ItemState) -> Result<()> {
+pub async fn update_item(
+    pool: &PgPool,
+    account_uid: Uuid,
+    item_uid: Uuid,
+    state: ItemState,
+) -> Result<()> {
     let mut tx = pool.begin().await?;
     let now = Utc::now().naive_local();
 
@@ -119,11 +127,18 @@ pub async fn update_item(pool: &PgPool, item_uid: Uuid, state: ItemState) -> Res
         r#"
             INSERT INTO item_event (item_id, event_type_id, occurred_at)
             VALUES (
-                (SELECT id FROM item WHERE item_uid = $1),
-                (SELECT id FROM item_event_type WHERE name = $2),
-                $3
+                (
+                    SELECT i.id
+                    FROM item i
+                    JOIN account a ON a.id = i.account_id
+                    WHERE a.account_uid = $1
+                    AND i.item_uid = $2
+                ),
+                (SELECT id FROM item_event_type WHERE name = $3),
+                $4
             )
         "#,
+        account_uid,
         item_uid,
         state.as_str(),
         now,
