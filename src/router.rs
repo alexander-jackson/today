@@ -13,7 +13,6 @@ use color_eyre::Report;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header};
 use serde::Deserialize;
 use sqlx::PgPool;
-use tera::Context;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use uuid::Uuid;
@@ -22,7 +21,7 @@ use crate::auth::Account;
 use crate::error::ServerResult;
 use crate::persistence::account::{EmailAddress, HashedPassword};
 use crate::persistence::ItemState;
-use crate::templates::{RenderedTemplate, TemplateEngine};
+use crate::templates::{IndexContext, RenderedTemplate, TemplateEngine};
 
 #[derive(Clone)]
 struct ApplicationState {
@@ -82,24 +81,8 @@ async fn templated(
     let now = Utc::now().date_naive();
     let items = crate::persistence::select_items(&pool, account.account_uid, now).await?;
 
-    let mut checked_items = Vec::new();
-    let mut unchecked_items = Vec::new();
-
-    for item in items {
-        match item.state {
-            ItemState::Checked => checked_items.push(item),
-            ItemState::Unchecked => unchecked_items.push(item),
-            ItemState::Deleted => {
-                // intentionally ignored
-            }
-        };
-    }
-
-    let mut context = Context::new();
-    context.insert("checked_items", &checked_items);
-    context.insert("unchecked_items", &unchecked_items);
-
-    let rendered = template_engine.render("index.tera.html", &context)?;
+    let context = IndexContext::from(items);
+    let rendered = template_engine.render_serialized("index.tera.html", &context)?;
 
     Ok(rendered)
 }
@@ -137,8 +120,7 @@ async fn login(
         template_engine, ..
     }): State<ApplicationState>,
 ) -> ServerResult<RenderedTemplate> {
-    let context = Context::new();
-    let rendered = template_engine.render("login.tera.html", &context)?;
+    let rendered = template_engine.render_serialized("login.tera.html", &())?;
 
     Ok(rendered)
 }
