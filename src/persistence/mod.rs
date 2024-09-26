@@ -35,10 +35,10 @@ impl From<String> for ItemState {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct Item {
-    item_uid: Uuid,
-    content: String,
+    pub item_uid: Uuid,
+    pub content: String,
     pub state: ItemState,
 }
 
