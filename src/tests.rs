@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use axum::body::Body;
 use axum::http::header::{AsHeaderName, CONTENT_TYPE, COOKIE, LOCATION, SET_COOKIE};
 use axum::http::{Method, Request, StatusCode};
@@ -21,21 +23,46 @@ struct AccountDetails {
     password: &'static str,
 }
 
-impl Default for AccountDetails {
-    fn default() -> Self {
+impl AccountDetails {
+    fn new(email_address: &'static str, password: &'static str) -> Self {
         Self {
-            email_address: "test@test.com",
-            password: "test",
+            email_address,
+            password,
         }
     }
 }
 
-struct AccountClient<'a> {
-    router: &'a mut Router,
+impl Default for AccountDetails {
+    fn default() -> Self {
+        Self::new("test@test.com", "test")
+    }
+}
+
+#[derive(Clone)]
+struct SharedRouter {
+    inner: RefCell<Router>,
+}
+
+impl SharedRouter {
+    fn new(router: Router) -> Self {
+        Self {
+            inner: RefCell::new(router),
+        }
+    }
+
+    async fn call(&self, req: Request<Body>) -> Result<Response> {
+        let response = self.inner.borrow_mut().call(req).await?;
+
+        Ok(response)
+    }
+}
+
+struct AccountClient {
+    router: SharedRouter,
     cookie: String,
 }
 
-impl<'a> AccountClient<'a> {
+impl AccountClient {
     async fn request_index(&mut self) -> Result<Response> {
         let request = Request::builder()
             .method(Method::GET)
@@ -62,7 +89,7 @@ impl<'a> AccountClient<'a> {
     }
 }
 
-fn build_router(pool: PgPool) -> Result<Router> {
+fn build_router(pool: PgPool) -> Result<SharedRouter> {
     let template_engine = TemplateEngine::new()?;
     let cookie_key = Key::generate();
     let encoding_key = EncodingKey::from_secret(b"");
@@ -76,7 +103,7 @@ fn build_router(pool: PgPool) -> Result<Router> {
         decoding_key,
     );
 
-    Ok(router)
+    Ok(SharedRouter::new(router))
 }
 
 async fn read_full_body(response: Response) -> Result<String> {
@@ -91,7 +118,7 @@ fn get_response_header<'a, K: AsHeaderName>(response: &'a Response, header: K) -
 }
 
 async fn create_account(
-    router: &mut Router,
+    router: &SharedRouter,
     AccountDetails {
         email_address,
         password,
@@ -102,7 +129,7 @@ async fn create_account(
         .uri("/register")
         .header(CONTENT_TYPE, FORM_MIME_TYPE)
         .body(Body::from(format!(
-            "email_address={email_address}@test.com&raw_password={password}"
+            "email_address={email_address}&raw_password={password}"
         )))?;
 
     router.call(request).await?;
@@ -111,34 +138,37 @@ async fn create_account(
 }
 
 async fn login_to_account<'a>(
-    router: &'a mut Router,
+    router: &SharedRouter,
     AccountDetails {
         email_address,
         password,
     }: &AccountDetails,
-) -> Result<(Response, AccountClient<'a>)> {
+) -> Result<(Response, AccountClient)> {
     let request = Request::builder()
         .method(Method::POST)
         .uri("/login")
         .header(CONTENT_TYPE, FORM_MIME_TYPE)
         .body(Body::from(format!(
-            "email_address={email_address}@test.com&raw_password={password}",
+            "email_address={email_address}&raw_password={password}",
         )))?;
 
     let response = router.call(request).await?;
-    let cookie = response
-        .headers()
-        .get(SET_COOKIE)
+    let cookie = get_response_header(&response, SET_COOKIE)
         .ok_or_else(|| eyre!("Failed to get a cookie from the response"))?
-        .to_str()?
         .to_owned();
 
-    Ok((response, AccountClient { cookie, router }))
+    Ok((
+        response,
+        AccountClient {
+            cookie,
+            router: router.clone(),
+        },
+    ))
 }
 
 #[sqlx::test]
 async fn invalid_requests_get_404s(pool: PgPool) -> Result<()> {
-    let mut router = build_router(pool)?;
+    let router = build_router(pool)?;
     let request = Request::builder()
         .uri("/unknown-path")
         .body(Body::empty())?;
@@ -153,14 +183,14 @@ async fn invalid_requests_get_404s(pool: PgPool) -> Result<()> {
 
 #[sqlx::test]
 async fn can_add_items(pool: PgPool) -> Result<()> {
-    let mut router = build_router(pool)?;
+    let router = build_router(pool)?;
     let account_details = AccountDetails::default();
 
     // Create an account
-    create_account(&mut router, &account_details).await?;
+    create_account(&router, &account_details).await?;
 
     // Log in to the account to get a token
-    let (response, mut client) = login_to_account(&mut router, &account_details).await?;
+    let (response, mut client) = login_to_account(&router, &account_details).await?;
 
     assert_eq!(response.status(), StatusCode::FOUND);
     assert_eq!(get_response_header(&response, LOCATION), Some("/"));
@@ -182,6 +212,31 @@ async fn can_add_items(pool: PgPool) -> Result<()> {
     let body = read_full_body(response).await?;
 
     assert!(body.contains("Task"));
+
+    Ok(())
+}
+
+#[sqlx::test]
+async fn accounts_cannot_see_items_belonging_to_each_other(pool: PgPool) -> Result<()> {
+    let router = build_router(pool)?;
+    let account1 = AccountDetails::new("test1@test.com", "password");
+    let account2 = AccountDetails::new("test2@test.com", "password");
+
+    // Create accounts and log in to them
+    create_account(&router, &account1).await?;
+    create_account(&router, &account2).await?;
+
+    let (_, mut client1) = login_to_account(&router, &account1).await?;
+    let (_, mut client2) = login_to_account(&router, &account2).await?;
+
+    // Create an item on the first account
+    client1.create_item().await?;
+
+    // Check what the other account can see
+    let response = client2.request_index().await?;
+    let body = read_full_body(response).await?;
+
+    assert!(!body.contains("Task"));
 
     Ok(())
 }
