@@ -18,12 +18,12 @@ use crate::utils::get_env_var;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenvy::dotenv().ok();
+
     color_eyre::install()?;
     tracing_subscriber::fmt::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
-
-    dotenvy::dotenv().ok();
 
     let pool = crate::persistence::bootstrap::run().await?;
     let template_engine = TemplateEngine::new()?;
@@ -33,6 +33,10 @@ async fn main() -> Result<()> {
     let encoding_key = EncodingKey::from_secret(jwt_key.as_bytes());
     let decoding_key = DecodingKey::from_secret(jwt_key.as_bytes());
 
+    let addr = get_env_var("SERVER_ADDR")
+        .and_then(|v| Ok(v.parse()?))
+        .unwrap_or_else(|_| SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8000));
+
     let router = crate::router::build(
         template_engine,
         pool,
@@ -41,7 +45,6 @@ async fn main() -> Result<()> {
         decoding_key,
     );
 
-    let addr = SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8000);
     let listener = TcpListener::bind(addr).await?;
 
     tracing::info!(?addr, "listening for incoming requests");
