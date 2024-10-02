@@ -6,6 +6,8 @@ use jsonwebtoken::{DecodingKey, EncodingKey};
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
 
+use crate::router::IndexCache;
+
 mod auth;
 mod error;
 mod persistence;
@@ -25,8 +27,9 @@ async fn main() -> Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let pool = crate::persistence::bootstrap::run().await?;
     let template_engine = TemplateEngine::new()?;
+    let pool = crate::persistence::bootstrap::run().await?;
+    let index_cache = IndexCache::new(32);
     let cookie_key = Key::from(get_env_var("COOKIE_KEY")?.as_bytes());
 
     let jwt_key = get_env_var("JWT_KEY")?;
@@ -40,6 +43,7 @@ async fn main() -> Result<()> {
     let router = crate::router::build(
         template_engine,
         pool,
+        index_cache,
         cookie_key,
         encoding_key,
         decoding_key,
