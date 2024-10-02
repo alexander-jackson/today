@@ -12,6 +12,7 @@ use jsonwebtoken::{DecodingKey, EncodingKey};
 use sqlx::PgPool;
 use tower::Service;
 
+use crate::router::IndexCache;
 use crate::templates::TemplateEngine;
 
 const FORM_MIME_TYPE: &str = "application/x-www-form-urlencoded";
@@ -91,6 +92,7 @@ impl AccountClient {
 
 fn build_router(pool: PgPool) -> Result<SharedRouter> {
     let template_engine = TemplateEngine::new()?;
+    let index_cache = IndexCache::new(1);
     let cookie_key = Key::generate();
     let encoding_key = EncodingKey::from_secret(b"");
     let decoding_key = DecodingKey::from_secret(b"");
@@ -98,6 +100,7 @@ fn build_router(pool: PgPool) -> Result<SharedRouter> {
     let router = crate::router::build(
         template_engine,
         pool,
+        index_cache,
         cookie_key,
         encoding_key,
         decoding_key,

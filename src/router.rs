@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::body::Body;
 use axum::extract::{Form, FromRef, Json, Path, State};
 use axum::http::header::LOCATION;
@@ -11,6 +13,7 @@ use chrono::Utc;
 use color_eyre::eyre::Result;
 use color_eyre::Report;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header};
+use moka::future::Cache;
 use serde::Deserialize;
 use sqlx::PgPool;
 use tower_http::services::ServeDir;
@@ -23,10 +26,13 @@ use crate::persistence::account::{EmailAddress, HashedPassword};
 use crate::persistence::ItemState;
 use crate::templates::{IndexContext, RenderedTemplate, TemplateEngine};
 
+pub type IndexCache = Cache<Uuid, Arc<IndexContext>>;
+
 #[derive(Clone)]
 struct ApplicationState {
     template_engine: TemplateEngine,
     pool: PgPool,
+    index_cache: IndexCache,
     cookie_key: Key,
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
@@ -47,6 +53,7 @@ impl FromRef<ApplicationState> for DecodingKey {
 pub fn build(
     template_engine: TemplateEngine,
     pool: PgPool,
+    index_cache: IndexCache,
     cookie_key: Key,
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
@@ -54,6 +61,7 @@ pub fn build(
     let state = ApplicationState {
         template_engine,
         pool,
+        index_cache,
         cookie_key,
         encoding_key,
         decoding_key,
@@ -74,14 +82,26 @@ async fn templated(
     State(ApplicationState {
         template_engine,
         pool,
+        index_cache,
         ..
     }): State<ApplicationState>,
     account: Account,
 ) -> ServerResult<RenderedTemplate> {
     let now = Utc::now().date_naive();
-    let items = crate::persistence::select_items(&pool, account.account_uid, now).await?;
+    let account_uid = account.account_uid;
 
-    let context = IndexContext::from(items);
+    let context = match index_cache.get(&account_uid).await {
+        Some(ctx) => ctx,
+        None => {
+            let items = crate::persistence::select_items(&pool, account_uid, now).await?;
+            let context = Arc::new(IndexContext::from(items));
+
+            index_cache.insert(account_uid, Arc::clone(&context)).await;
+
+            context
+        }
+    };
+
     let rendered = template_engine.render_serialized("index.tera.html", &context)?;
 
     Ok(rendered)
@@ -167,16 +187,21 @@ struct AddItemForm {
 }
 
 async fn add_item(
-    State(ApplicationState { pool, .. }): State<ApplicationState>,
+    State(ApplicationState {
+        pool, index_cache, ..
+    }): State<ApplicationState>,
     account: Account,
     Form(AddItemForm { content }): Form<AddItemForm>,
 ) -> ServerResult<Response> {
-    tracing::info!(?content, "Got something from the client");
+    let account_uid = account.account_uid;
 
     let item_uid = Uuid::new_v4();
     let now = Utc::now().naive_local();
 
-    crate::persistence::create_item(&pool, account.account_uid, item_uid, &content, now).await?;
+    crate::persistence::create_item(&pool, account_uid, item_uid, &content, now).await?;
+    index_cache.remove(&account_uid).await;
+
+    tracing::info!(%account_uid, %item_uid, "added an item");
 
     Ok(redirect("/")?)
 }
@@ -187,12 +212,19 @@ struct UpdateItemRequest {
 }
 
 async fn update_item(
-    State(ApplicationState { pool, .. }): State<ApplicationState>,
+    State(ApplicationState {
+        pool, index_cache, ..
+    }): State<ApplicationState>,
     Path(item_uid): Path<Uuid>,
     account: Account,
     Json(request): Json<UpdateItemRequest>,
 ) -> ServerResult<Response> {
-    crate::persistence::update_item(&pool, account.account_uid, item_uid, request.state).await?;
+    let account_uid = account.account_uid;
+
+    crate::persistence::update_item(&pool, account_uid, item_uid, request.state).await?;
+    index_cache.remove(&account_uid).await;
+
+    tracing::info!(%account_uid, %item_uid, ?request, "updated an item");
 
     Ok(success()?)
 }

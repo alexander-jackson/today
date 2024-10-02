@@ -11,6 +11,7 @@ chrono = { version = "0.4.38", default-features = false, features = ["now"] }
 color-eyre = "0.6.3"
 dotenvy = "0.15.7"
 jsonwebtoken = "9.3.0"
+moka = { version = "0.12.8", features = ["future"] }
 serde = { version = "1.0.208", features = ["derive"] }
 sqlx = { version = "0.8.0", features = ["postgres", "runtime-tokio-rustls", "uuid", "chrono"] }
 sqlx-bootstrap = { git = "https://github.com/alexander-jackson/sqlx-bootstrap.git", version = "0.1.0" }
