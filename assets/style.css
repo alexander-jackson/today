@@ -32,7 +32,7 @@ input[type="checkbox"] {
   cursor: pointer;
 }
 
-#add-item {
+input:not([type="checkbox"]):not([type="submit"]) {
   width: 60%;
   height: 30px;
   font-size: 25px;
@@ -42,4 +42,8 @@ input[type="checkbox"] {
 
 details {
   font-size: 30px;
+}
+
+.hidden {
+  display: none;
 }
