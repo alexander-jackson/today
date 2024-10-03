@@ -243,3 +243,23 @@ async fn accounts_cannot_see_items_belonging_to_each_other(pool: PgPool) -> Resu
 
     Ok(())
 }
+
+#[sqlx::test]
+async fn can_render_login_page(pool: PgPool) -> Result<()> {
+    let router = build_router(pool)?;
+
+    let request = Request::builder()
+        .method(Method::GET)
+        .uri("/login")
+        .body(Body::empty())?;
+
+    let response = router.call(request).await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = read_full_body(response).await?;
+
+    assert!(body.contains("Login"));
+
+    Ok(())
+}

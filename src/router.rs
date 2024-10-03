@@ -139,7 +139,7 @@ async fn login(
         template_engine, ..
     }): State<ApplicationState>,
 ) -> ServerResult<RenderedTemplate> {
-    let rendered = template_engine.render_serialized("login.tera.html", &())?;
+    let rendered = template_engine.render_contextless("login.tera.html")?;
 
     Ok(rendered)
 }
