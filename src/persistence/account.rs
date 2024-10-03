@@ -37,7 +37,7 @@ pub struct Account {
 pub async fn create_account(
     pool: &PgPool,
     account_uid: Uuid,
-    email_address: &EmailAddress,
+    email_address: &str,
     password: &HashedPassword,
 ) -> Result<()> {
     sqlx::query!(
@@ -46,7 +46,7 @@ pub async fn create_account(
             VALUES ($1, $2, $3, now()::timestamp)
         "#,
         account_uid,
-        email_address.0,
+        email_address,
         password.0
     )
     .execute(pool)
@@ -98,14 +98,14 @@ mod tests {
     #[sqlx::test]
     async fn accounts_can_be_created(pool: PgPool) -> Result<()> {
         let account_uid = Uuid::new_v4();
-        let email_address = EmailAddress::from("john@gmail.com");
+        let email_address = "john@gmail.com";
         let password = HashedPassword::from_raw("password")?;
 
         // Insert the account
         create_account(&pool, account_uid, &email_address, &password).await?;
 
         // Validate we can fetch it by email again
-        let account = fetch_account_by_email(&pool, &email_address).await?;
+        let account = fetch_account_by_email(&pool, &EmailAddress::from(email_address)).await?;
 
         assert_eq!(account.map(|a| a.account_uid), Some(account_uid));
 
@@ -114,7 +114,7 @@ mod tests {
 
     #[sqlx::test]
     async fn cannot_create_multiple_accounts_with_same_email(pool: PgPool) -> Result<()> {
-        let email_address = EmailAddress::from("john@gmail.com");
+        let email_address = "john@gmail.com";
         let password = HashedPassword::from_raw("password")?;
 
         // Insert the account

@@ -5,7 +5,7 @@ use color_eyre::eyre::Result;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::persistence::account::{EmailAddress, HashedPassword};
+use crate::persistence::account::HashedPassword;
 use crate::persistence::ItemState;
 
 const SOME_EMAIL_ADDRESS: &str = "test@test.com";
@@ -30,7 +30,7 @@ async fn create_account(pool: &PgPool, email_address: &str) -> Result<Uuid> {
     super::account::create_account(
         &pool,
         account_uid,
-        &EmailAddress::from(email_address),
+        email_address,
         &HashedPassword::from_raw("foobar")?,
     )
     .await?;

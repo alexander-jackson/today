@@ -121,7 +121,6 @@ async fn register(
     }): Form<Registration>,
 ) -> ServerResult<Response> {
     let account_uid = Uuid::new_v4();
-    let email_address = EmailAddress::from(email_address);
     let hashed_password = HashedPassword::from_raw(&raw_password)?;
 
     crate::persistence::account::create_account(
