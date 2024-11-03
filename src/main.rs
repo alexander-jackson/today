@@ -1,14 +1,11 @@
 use std::net::{Ipv4Addr, SocketAddrV4};
 
-use axum_extra::extract::cookie::Key;
 use color_eyre::eyre::Result;
-use jsonwebtoken::{DecodingKey, EncodingKey};
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
 
 use crate::router::IndexCache;
 
-mod auth;
 mod error;
 mod persistence;
 mod router;
@@ -30,25 +27,12 @@ async fn main() -> Result<()> {
     let template_engine = TemplateEngine::new()?;
     let pool = crate::persistence::bootstrap::run().await?;
     let index_cache = IndexCache::new(32);
-    let cookie_key = Key::from(get_env_var("COOKIE_KEY")?.as_bytes());
-
-    let jwt_key = get_env_var("JWT_KEY")?;
-    let encoding_key = EncodingKey::from_secret(jwt_key.as_bytes());
-    let decoding_key = DecodingKey::from_secret(jwt_key.as_bytes());
 
     let addr = get_env_var("SERVER_ADDR")
         .and_then(|v| Ok(v.parse()?))
         .unwrap_or_else(|_| SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8000));
 
-    let router = crate::router::build(
-        template_engine,
-        pool,
-        index_cache,
-        cookie_key,
-        encoding_key,
-        decoding_key,
-    );
-
+    let router = crate::router::build(template_engine, pool, index_cache);
     let listener = TcpListener::bind(addr).await?;
 
     tracing::info!(?addr, "listening for incoming requests");

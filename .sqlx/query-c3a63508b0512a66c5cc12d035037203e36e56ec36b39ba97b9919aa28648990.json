@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO item_event (item_id, event_type_id, occurred_at)\n            VALUES (\n                (\n                    SELECT i.id\n                    FROM item i\n                    WHERE i.item_uid = $1\n                ),\n                (SELECT id FROM item_event_type WHERE name = $2),\n                $3\n            )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamp"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c3a63508b0512a66c5cc12d035037203e36e56ec36b39ba97b9919aa28648990"
+}
