@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-pub mod account;
 pub mod bootstrap;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -42,7 +41,7 @@ pub struct Item {
     pub state: ItemState,
 }
 
-pub async fn select_items(pool: &PgPool, account_uid: Uuid, date: NaiveDate) -> Result<Vec<Item>> {
+pub async fn select_items(pool: &PgPool, date: NaiveDate) -> Result<Vec<Item>> {
     let items = sqlx::query_as!(
         Item,
         r#"
@@ -52,18 +51,15 @@ pub async fn select_items(pool: &PgPool, account_uid: Uuid, date: NaiveDate) -> 
                     i.content,
                     iet.name AS state
                 FROM item i
-                JOIN account a ON a.id = i.account_id
                 JOIN item_event ie ON i.id = ie.item_id
                 JOIN item_event_type iet ON iet.id = ie.event_type_id
-                WHERE a.account_uid = $1
-                AND i.created_at::date = $2
+                AND i.created_at::date = $1
                 ORDER BY i.id, i.created_at, ie.occurred_at DESC
             )
             SELECT item_uid, content, state
             FROM items_with_states
             WHERE state != 'Deleted'
         "#,
-        account_uid,
         date,
     )
     .fetch_all(pool)
@@ -74,7 +70,6 @@ pub async fn select_items(pool: &PgPool, account_uid: Uuid, date: NaiveDate) -> 
 
 pub async fn create_item(
     pool: &PgPool,
-    account_uid: Uuid,
     item_uid: Uuid,
     content: &str,
     created_at: NaiveDateTime,
@@ -83,10 +78,9 @@ pub async fn create_item(
 
     sqlx::query!(
         r#"
-            INSERT INTO item (account_id, item_uid, content, created_at)
-            VALUES ((SELECT id FROM account WHERE account_uid = $1), $2, $3, $4)
+            INSERT INTO item (item_uid, content, created_at)
+            VALUES ($1, $2, $3)
         "#,
-        account_uid,
         item_uid,
         content,
         created_at,
@@ -114,12 +108,7 @@ pub async fn create_item(
     Ok(())
 }
 
-pub async fn update_item(
-    pool: &PgPool,
-    account_uid: Uuid,
-    item_uid: Uuid,
-    state: ItemState,
-) -> Result<()> {
+pub async fn update_item(pool: &PgPool, item_uid: Uuid, state: ItemState) -> Result<()> {
     let mut tx = pool.begin().await?;
     let now = Utc::now().naive_local();
 
@@ -130,15 +119,12 @@ pub async fn update_item(
                 (
                     SELECT i.id
                     FROM item i
-                    JOIN account a ON a.id = i.account_id
-                    WHERE a.account_uid = $1
-                    AND i.item_uid = $2
+                    WHERE i.item_uid = $1
                 ),
-                (SELECT id FROM item_event_type WHERE name = $3),
-                $4
+                (SELECT id FROM item_event_type WHERE name = $2),
+                $3
             )
         "#,
-        account_uid,
         item_uid,
         state.as_str(),
         now,

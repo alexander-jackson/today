@@ -56,13 +56,6 @@ impl TemplateEngine {
 
         Ok(RenderedTemplate { inner: rendered })
     }
-
-    pub fn render_contextless(&self, template: &str) -> Result<RenderedTemplate> {
-        let context = Context::default();
-        let rendered = self.inner.render(template, &context)?;
-
-        Ok(RenderedTemplate { inner: rendered })
-    }
 }
 
 pub struct RenderedTemplate {
