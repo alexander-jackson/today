@@ -1,5 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use color_eyre::eyre::Result;
+use pulldown_cmark::{Event, Parser};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -34,10 +35,42 @@ impl From<String> for ItemState {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Content(String);
+
+impl From<String> for Content {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl Serialize for Content {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut rendered = String::new();
+
+        for event in Parser::new(&self.0) {
+            match event {
+                Event::Text(value) => rendered.push_str(&value),
+                Event::Code(value) => {
+                    rendered.push_str("<code>");
+                    rendered.push_str(&value);
+                    rendered.push_str("</code>");
+                }
+                _ => {}
+            };
+        }
+
+        serializer.serialize_str(&rendered)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct Item {
     pub item_uid: Uuid,
-    pub content: String,
+    pub content: Content,
     pub state: ItemState,
 }
 

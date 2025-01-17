@@ -26,6 +26,11 @@ li {
   font-size: 30px;
 }
 
+code {
+  font-size: 30px;
+  color: #aab99a;
+}
+
 input[type="checkbox"] {
   width: 30px;
   height: 30px;

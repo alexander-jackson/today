@@ -4,9 +4,11 @@ use axum::http::{Method, Request, StatusCode};
 use axum::response::Response;
 use axum::Router;
 use http_body_util::BodyExt;
+use serde_test::{assert_ser_tokens, Token};
 use sqlx::PgPool;
 use tower::Service;
 
+use crate::persistence::Content;
 use crate::router::IndexCache;
 use crate::templates::TemplateEngine;
 
@@ -83,4 +85,18 @@ async fn can_add_items(pool: PgPool) -> Result<()> {
     assert!(body.contains("Task"));
 
     Ok(())
+}
+
+#[test]
+fn item_content_without_any_markdown_should_be_transparently_rendered() {
+    let content = Content::from("very normal text".to_string());
+
+    assert_ser_tokens(&content, &[Token::Str("very normal text")]);
+}
+
+#[test]
+fn can_render_code_blocks_in_item_content() {
+    let content = Content::from("some `code` block".to_string());
+
+    assert_ser_tokens(&content, &[Token::Str("some <code>code</code> block")]);
 }

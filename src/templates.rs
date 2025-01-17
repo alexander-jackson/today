@@ -84,13 +84,13 @@ mod tests {
     fn items_are_correctly_categorised() {
         let checked_item = Item {
             item_uid: Uuid::new_v4(),
-            content: "checked".to_owned(),
+            content: "checked".to_owned().into(),
             state: ItemState::Checked,
         };
 
         let unchecked_item = Item {
             item_uid: Uuid::new_v4(),
-            content: "unchecked".to_owned(),
+            content: "unchecked".to_owned().into(),
             state: ItemState::Unchecked,
         };
 
@@ -105,7 +105,7 @@ mod tests {
     fn deleted_items_are_ignored() {
         let deleted_item = Item {
             item_uid: Uuid::new_v4(),
-            content: "deleted".to_owned(),
+            content: "deleted".to_owned().into(),
             state: ItemState::Deleted,
         };
 
