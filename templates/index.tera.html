@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8" />
     <link rel="stylesheet" href="assets/style.css" />
     <script type="text/javascript" src="assets/script.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -15,7 +15,7 @@
       {% for item in unchecked_items %}
       <li>
         <input type="checkbox" id="{{ item.item_uid }}" />
-        {{ item.content }}
+        {{ item.content | safe }}
       </li>
       {% endfor %}
     </ul>
