@@ -31,7 +31,7 @@
         {% for item in checked_items %}
         <li>
           <input type="checkbox" id="{{ item.item_uid }}" checked />
-          {{ item.content }}
+          {{ item.content | safe }}
         </li>
         {% endfor %}
       </ul>
